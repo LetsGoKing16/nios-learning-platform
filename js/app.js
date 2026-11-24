@@ -8,17 +8,49 @@ import { AnalyticsDashboard } from './analytics.js';
 import { StudyToolsHub } from './studyTools.js';
 import { StreakManager } from './streakManager.js';
 
+// Safe LocalStorage wrapper preventing private-browsing / quota crashes
+const safeStorage = {
+  get(key, fallback = null) {
+    try {
+      const val = localStorage.getItem(key);
+      return val !== null ? val : fallback;
+    } catch {
+      return fallback;
+    }
+  },
+  set(key, val) {
+    try {
+      localStorage.setItem(key, typeof val === 'string' ? val : JSON.stringify(val));
+    } catch (e) {
+      console.warn('Storage set error:', e);
+    }
+  },
+  remove(key) {
+    try {
+      localStorage.removeItem(key);
+    } catch {}
+  },
+  getJSON(key, fallback = null) {
+    try {
+      const val = localStorage.getItem(key);
+      return val ? JSON.parse(val) : fallback;
+    } catch {
+      return fallback;
+    }
+  }
+};
+
 class AppState {
   constructor() {
     this.subjects = SUBJECTS;
     this.languages = LANGUAGES;
     this.translations = TRANSLATIONS;
     
-    this.currentLanguage = localStorage.getItem('nios_lang') || 'en';
-    this.theme = localStorage.getItem('nios_theme') || 'light';
-    this.currentSubjectId = localStorage.getItem('nios_curr_subj') || 'math-211';
+    this.currentLanguage = safeStorage.get('nios_lang', 'en');
+    this.theme = safeStorage.get('nios_theme', 'light');
+    this.currentSubjectId = safeStorage.get('nios_curr_subj', 'math-211');
     const initSubj = this.subjects.find(s => s.id === this.currentSubjectId) || this.subjects[0];
-    const savedLesson = localStorage.getItem('nios_curr_lesson');
+    const savedLesson = safeStorage.get('nios_curr_lesson', null);
     this.currentLessonId = (savedLesson && initSubj.lessons.some(l => l.id === savedLesson)) 
       ? savedLesson 
       : (initSubj.lessons[0] ? initSubj.lessons[0].id : 'math-l1');
@@ -34,73 +66,37 @@ class AppState {
   }
 
   loadCompletedLessons() {
-    try {
-      const s = localStorage.getItem('nios_completed_lessons');
-      return s ? JSON.parse(s) : ['math-l1'];
-    } catch {
-      return ['math-l1'];
-    }
+    return safeStorage.getJSON('nios_completed_lessons', ['math-l1']);
   }
 
   loadQuizResults() {
-    try {
-      const s = localStorage.getItem('nios_quiz_results');
-      return s ? JSON.parse(s) : [];
-    } catch {
-      return [];
-    }
+    return safeStorage.getJSON('nios_quiz_results', []);
   }
 
   loadFluencyScores() {
-    try {
-      const s = localStorage.getItem('nios_fluency_scores');
-      return s ? JSON.parse(s) : [];
-    } catch {
-      return [];
-    }
+    return safeStorage.getJSON('nios_fluency_scores', []);
   }
 
   loadStudyMinutes() {
-    try {
-      const s = localStorage.getItem('nios_study_minutes');
-      const loaded = s ? JSON.parse(s) : {};
-      const initial = {
-        'math-211': 45,
-        'sci-212': 38,
-        'soc-213': 24,
-        'eng-202': 18,
-        'eco-214': 15,
-        'hin-201': 14,
-        'deo-229': 16,
-        'bus-215': 12,
-        'hom-216': 10,
-        'ich-223': 12,
-        'psy-222': 14
-      };
-      return { ...initial, ...loaded };
-    } catch {
-      return {
-        'math-211': 45,
-        'sci-212': 38,
-        'soc-213': 24,
-        'eng-202': 18,
-        'eco-214': 15,
-        'hin-201': 14,
-        'deo-229': 16,
-        'bus-215': 12,
-        'hom-216': 10,
-        'ich-223': 12,
-        'psy-222': 14
-      };
-    }
+    const loaded = safeStorage.getJSON('nios_study_minutes', {});
+    const initial = {
+      'math-211': 45,
+      'sci-212': 38,
+      'soc-213': 24,
+      'eng-202': 18,
+      'eco-214': 15,
+      'hin-201': 14,
+      'deo-229': 16,
+      'bus-215': 12,
+      'hom-216': 10,
+      'ich-223': 12,
+      'psy-222': 14
+    };
+    return { ...initial, ...loaded };
   }
 
   saveStudyMinutes() {
-    try {
-      localStorage.setItem('nios_study_minutes', JSON.stringify(this.studyMinutes));
-    } catch (e) {
-      console.warn(e);
-    }
+    safeStorage.set('nios_study_minutes', this.studyMinutes);
   }
 
   startActiveTimer() {
@@ -130,27 +126,27 @@ class AppState {
 
   setSubject(subjectId) {
     this.currentSubjectId = subjectId;
-    localStorage.setItem('nios_curr_subj', subjectId);
+    safeStorage.set('nios_curr_subj', subjectId);
     const subj = this.getCurrentSubject();
     if (subj && subj.lessons.length > 0) {
       this.currentLessonId = subj.lessons[0].id;
-      localStorage.setItem('nios_curr_lesson', this.currentLessonId);
+      safeStorage.set('nios_curr_lesson', this.currentLessonId);
     }
   }
 
   setLesson(lessonId) {
     this.currentLessonId = lessonId;
-    localStorage.setItem('nios_curr_lesson', lessonId);
+    safeStorage.set('nios_curr_lesson', lessonId);
   }
 
   setLanguage(langCode) {
     this.currentLanguage = langCode;
-    localStorage.setItem('nios_lang', langCode);
+    safeStorage.set('nios_lang', langCode);
   }
 
   setTheme(theme) {
     this.theme = theme;
-    localStorage.setItem('nios_theme', theme);
+    safeStorage.set('nios_theme', theme);
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
@@ -173,7 +169,7 @@ class AppState {
       this.completedLessons.splice(idx, 1);
       completed = false;
     }
-    localStorage.setItem('nios_completed_lessons', JSON.stringify(this.completedLessons));
+    safeStorage.set('nios_completed_lessons', this.completedLessons);
     return completed;
   }
 
@@ -183,13 +179,13 @@ class AppState {
 
   recordQuizResult(lessonId, result) {
     this.quizResults.push(result);
-    localStorage.setItem('nios_quiz_results', JSON.stringify(this.quizResults));
+    safeStorage.set('nios_quiz_results', this.quizResults);
     this.streakManager.recordActivity(10, true);
   }
 
   recordFactFluencyScore(scoreData) {
     this.factFluencyScores.push(scoreData);
-    localStorage.setItem('nios_fluency_scores', JSON.stringify(this.factFluencyScores));
+    safeStorage.set('nios_fluency_scores', this.factFluencyScores);
     this.streakManager.recordActivity(5, false);
   }
 
@@ -266,10 +262,10 @@ class AppState {
     this.quizResults = [];
     this.factFluencyScores = [];
     this.studyMinutes = { 'math-211': 0, 'sci-212': 0, 'soc-213': 0, 'eng-202': 0, 'eco-214': 0 };
-    localStorage.removeItem('nios_completed_lessons');
-    localStorage.removeItem('nios_quiz_results');
-    localStorage.removeItem('nios_fluency_scores');
-    localStorage.removeItem('nios_study_minutes');
+    safeStorage.remove('nios_completed_lessons');
+    safeStorage.remove('nios_quiz_results');
+    safeStorage.remove('nios_fluency_scores');
+    safeStorage.remove('nios_study_minutes');
   }
 }
 
@@ -824,8 +820,37 @@ class NIOSPlatformApp {
   }
 }
 
-// Bootstrap application on DOM ready
-document.addEventListener('DOMContentLoaded', () => {
-  const app = new NIOSPlatformApp();
-  app.init();
-});
+// Bootstrap application safely with error boundary
+function bootstrapApp() {
+  try {
+    const app = new NIOSPlatformApp();
+    app.init();
+    console.log('[NIOS Platform] Application successfully started');
+  } catch (err) {
+    console.error('[NIOS Platform] Startup error:', err);
+    const root = document.getElementById('app-root');
+    if (root) {
+      root.innerHTML = `
+        <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#090d16;color:#f8fafc;font-family:sans-serif;padding:24px;text-align:center;">
+          <div style="max-width:440px;background:#0f172a;border:1px solid #1e293b;border-radius:20px;padding:32px;box-shadow:0 20px 40px rgba(0,0,0,0.5);">
+            <div style="font-size:36px;margin-bottom:12px;">⚠️</div>
+            <h2 style="font-size:18px;font-weight:bold;margin-bottom:8px;color:#f87171;">Application Initialization Notice</h2>
+            <p style="font-size:13px;color:#94a3b8;line-height:1.5;margin-bottom:20px;">
+              ${err.message || 'An error occurred while loading courses.'}
+            </p>
+            <button onclick="try{localStorage.clear();}catch(e){}location.reload();" style="padding:10px 20px;background:#2563eb;color:white;border:none;border-radius:10px;font-weight:bold;font-size:13px;cursor:pointer;">
+              Reset Cache & Reload
+            </button>
+          </div>
+        </div>
+      `;
+    }
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootstrapApp);
+} else {
+  bootstrapApp();
+}
+

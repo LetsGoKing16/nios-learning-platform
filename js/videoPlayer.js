@@ -17,10 +17,8 @@ export class VideoPlayer {
     if (!rawUrl) return '';
     let url = rawUrl.trim();
     if (!url.startsWith('http')) {
-      url = `https://www.youtube-nocookie.com/embed/${url}`;
+      url = `https://www.youtube.com/embed/${url}`;
     }
-    // Switch to youtube-nocookie.com to prevent third-party cookie blocks on localhost
-    url = url.replace('www.youtube.com/embed', 'www.youtube-nocookie.com/embed');
     try {
       const u = new URL(url);
       u.searchParams.set('rel', '0');
@@ -216,7 +214,21 @@ export class VideoPlayer {
     const directUrl = lesson.directYoutubeUrl || (vidId ? `https://www.youtube.com/watch?v=${vidId}` : `https://www.youtube.com/results?search_query=NIOS+Secondary+Courses+${encodeURIComponent(lesson.title)}`);
 
     return `
-      <div class="relative w-full h-full group bg-black">
+      <div class="relative w-full h-full group bg-slate-950 flex items-center justify-center overflow-hidden">
+        <!-- Background Fallback Container (Visible if iframe is blocked or restricted) -->
+        <div class="absolute inset-0 z-0 flex flex-col items-center justify-center p-6 text-center text-slate-300 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
+          <div class="w-14 h-14 rounded-2xl bg-red-600/20 text-red-500 border border-red-500/30 flex items-center justify-center text-2xl font-black mb-3">
+            ▶
+          </div>
+          <h3 class="font-bold text-white text-base mb-1">${lesson.title}</h3>
+          <p class="text-xs text-slate-400 max-w-sm mb-4">Click below to watch this lecture directly on YouTube or use the player.</p>
+          <a href="${directUrl}" target="_blank" rel="noopener noreferrer" class="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm shadow-lg shadow-red-600/30 transition flex items-center gap-2">
+            <span>▶ Watch on YouTube</span>
+            <span>↗</span>
+          </a>
+        </div>
+
+        <!-- Active Video Iframe -->
         <iframe 
           id="nios-active-video-iframe"
           src="${safeUrl}" 
@@ -224,13 +236,13 @@ export class VideoPlayer {
           class="w-full h-full border-0 relative z-10" 
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" 
           referrerpolicy="strict-origin-when-cross-origin"
-          loading="lazy"
+          loading="eager"
           allowfullscreen>
         </iframe>
         
         <!-- Floating YouTube Quick Action Overlay in Top Right -->
         <div class="absolute top-3 right-3 z-20 flex items-center gap-2 pointer-events-auto">
-          <a href="${directUrl}" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 rounded-lg bg-black/80 hover:bg-red-600 text-white font-bold text-xs backdrop-blur-md border border-white/20 shadow-lg transition-all flex items-center gap-1.5 hover:scale-105" title="Watch this lesson directly on YouTube">
+          <a href="${directUrl}" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 rounded-lg bg-black/85 hover:bg-red-600 text-white font-bold text-xs backdrop-blur-md border border-white/20 shadow-lg transition-all flex items-center gap-1.5 hover:scale-105" title="Watch this lesson directly on YouTube">
             <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
             <span>▶ Watch on YouTube</span>
             <span>↗</span>
